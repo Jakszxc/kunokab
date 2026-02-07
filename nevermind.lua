@@ -140,4 +140,75 @@ game:GetService("RunService").Stepped:Connect(function()
 end)
 
 if _G.Config.WhiteScreen then game:GetService("RunService"):Set3dRenderingEnabled(false) end
+
+-- [[ KAITUN FULL LOGIC - SYNC CONFIG EXECUTOR ]]
+repeat task.wait() until game:IsLoaded()
+
+local Player = game:GetService("Players").LocalPlayer
+local CommF = game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("CommF_")
+
+-- Bypass Streaming & Auto Team (Giữ nguyên)
+if game:GetService("Workspace"):FindFirstChild("StreamingEnabled") then Player.ReplicationFocus = workspace end
+local function ForceTeam()
+    task.spawn(function()
+        while not Player.Team do
+            CommF:InvokeServer("SetTeam", "Pirates")
+            task.wait(0.5)
+        end
+    end)
+end
+ForceTeam()
+
+-- Vòng lặp Farm chính húp data từ Config bên ngoài
+task.spawn(function()
+    while task.wait() do
+        if _G.Config.AutoFarm and Player.Team ~= nil then
+            pcall(function()
+                -- Lấy dữ liệu Quest (Giữ nguyên đống Quest lv 1-210 ở trên)
+                local qName, qID, mName, npcPos, mobArea = GetQuestData() 
+                
+                if not Player.PlayerGui.Main.Quest.Visible then
+                    -- Dùng TweenSpeed từ Executor
+                    local dist = (npcPos.p - Player.Character.HumanoidRootPart.Position).Magnitude
+                    game:GetService("TweenService"):Create(Player.Character.HumanoidRootPart, TweenInfo.new(dist/_G.Config.TweenSpeed, Enum.EasingStyle.Linear), {CFrame = npcPos}):Play()
+                    
+                    if dist < 15 then CommF:InvokeServer("StartQuest", qName, qID) end
+                else
+                    local targetMob = nil
+                    for _, v in pairs(workspace.Enemies:GetChildren()) do
+                        if v.Name == mName and v.Humanoid.Health > 0 then targetMob = v; break end
+                    end
+                    
+                    if targetMob then
+                        -- Dùng FarmHeight (Distance 13) từ Executor
+                        Player.Character.HumanoidRootPart.CFrame = targetMob.HumanoidRootPart.CFrame * CFrame.new(0, _G.Config.FarmHeight, 0)
+                        
+                        -- Gom quái (Bring Mob)
+                        for _, v in pairs(workspace.Enemies:GetChildren()) do
+                            if v.Name == mName and (v.HumanoidRootPart.Position - targetMob.HumanoidRootPart.Position).Magnitude < 300 then
+                                v.HumanoidRootPart.CFrame = targetMob.HumanoidRootPart.CFrame
+                                v.HumanoidRootPart.CanCollide = false
+                            end
+                        end
+                        
+                        -- Equip Tool
+                        local tool = Player.Backpack:FindFirstChild("Black Leg") or Player.Backpack:FindFirstChild("Combat") or Player.Character:FindFirstChildOfClass("Tool")
+                        if tool then Player.Character.Humanoid:EquipTool(tool) end
+                        
+                        -- Đánh với AttackSpeed 0.3 từ Executor
+                        game:GetService("ReplicatedStorage").Modules.Net["RE/RegisterAttack"]:FireServer()
+                        game:GetService("ReplicatedStorage").Modules.Net["RE/RegisterHit"]:FireServer(targetMob.HumanoidRootPart)
+                        task.wait(_G.Config.AttackSpeed)
+                    else
+                        -- Tween ra khu vực quái
+                        local dist = (mobArea.p - Player.Character.HumanoidRootPart.Position).Magnitude
+                        game:GetService("TweenService"):Create(Player.Character.HumanoidRootPart, TweenInfo.new(dist/_G.Config.TweenSpeed, Enum.EasingStyle.Linear), {CFrame = mobArea}):Play()
+                    end
+                end
+            end)
+        end
+    end
+end)
+
+-- Các logic Auto Stats, Code, Gacha... (Giữ nguyên)
 print("KAITUN BRING MOB LOADED!")
