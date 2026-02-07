@@ -1,93 +1,101 @@
--- [[ KAITUN FULL LOGIC 1-210 - BRING MOB EDITION ]]
+-- [[ KAITUN FULL LOGIC 1-210 - STREAMING BYPASS PRO ]]
 repeat task.wait() until game:IsLoaded()
 
--- [ 1. BYPASS STREAMING DATA ]
-if game:GetService("Workspace"):FindFirstChild("StreamingEnabled") then
-    game:GetService("Players").LocalPlayer.ReplicationFocus = workspace
-end
-
--- [ 2. FORCE AUTO TEAM ]
-local function ForceTeam()
-    local joinRem = game:GetService("ReplicatedStorage").Remotes.CommF_
-    task.spawn(function()
-        while true do
-            if game:GetService("Players").LocalPlayer.Team == nil then
-                joinRem:InvokeServer("SetTeam", "Pirates")
-            else
-                break
-            end
-            task.wait(0.5)
-        end
-    end)
-end
-ForceTeam()
-
--- [ CÁC BIẾN HỆ THỐNG ]
 local Player = game:GetService("Players").LocalPlayer
 local RS = game:GetService("ReplicatedStorage")
 local TS = game:GetService("TweenService")
 local CommF = RS:WaitForChild("Remotes"):WaitForChild("CommF_")
 
-_G.Config = _G.Config or {AutoFarm = true, FarmHeight = 25, TweenSpeed = 300}
+-- [ 1. BYPASS STREAMING & AUTO TEAM ]
+Player.ReplicationFocus = workspace
 
--- [ HÀM SMART MOVE ]
-local function SmartMove(targetCFrame)
+local function ForceTeam()
+    task.spawn(function()
+        while not Player.Team do
+            pcall(function()
+                CommF:InvokeServer("SetTeam", "Pirates")
+            end)
+            task.wait(1)
+        end
+    end)
+end
+ForceTeam()
+
+-- [ 2. SMART TWEEN ENGINE ]
+local function SmartTween(targetCFrame)
     if not Player.Character or not Player.Character:FindFirstChild("HumanoidRootPart") then return end
     local root = Player.Character.HumanoidRootPart
     local dist = (targetCFrame.p - root.Position).Magnitude
-    if root:FindFirstChild("BodyVelocity") then root.BodyVelocity:Destroy() end
-    if dist < 15 then root.CFrame = targetCFrame return end
-    TS:Create(root, TweenInfo.new(dist/_G.Config.TweenSpeed, Enum.EasingStyle.Linear), {CFrame = targetCFrame}):Play()
+    
+    if dist < 15 then 
+        root.CFrame = targetCFrame 
+        return 
+    end
+
+    local tween = TS:Create(root, TweenInfo.new(dist/_G.Config.TweenSpeed, Enum.EasingStyle.Linear), {CFrame = targetCFrame})
+    tween:Play()
+    
+    -- Chờ cho đến khi Tween xong hoặc bị hủy
+    repeat task.wait() until (targetCFrame.p - root.Position).Magnitude < 15 or not _G.Config.AutoFarm
 end
 
--- [[ 3. HÀM BRING MOB (GOM QUÁI) ]]
-local function BringMob(targetMob, mName)
-    for _, v in pairs(workspace.Enemies:GetChildren()) do
-        if v.Name == mName and v:FindFirstChild("Humanoid") and v.Humanoid.Health > 0 and v:FindFirstChild("HumanoidRootPart") then
-            -- Chỉ gom những con quái ở gần con quái mục tiêu (tránh kéo quái cả map bị kick)
-            if (v.HumanoidRootPart.Position - targetMob.HumanoidRootPart.Position).Magnitude < 300 then
-                v.HumanoidRootPart.CFrame = targetMob.HumanoidRootPart.CFrame
-                v.HumanoidRootPart.CanCollide = false
-                if v.Humanoid:FindFirstChild("Animator") then v.Humanoid.Animator:Destroy() end -- Chặn quái đánh trả
-                v.Humanoid:ChangeState(11) -- Đứng yên
-            end
-        end
+-- [ 3. DATA QUEST LEVEL 1-210 ]
+local function GetQuestData()
+    local lv = Player.Data.Level.Value
+    if lv < 10 then 
+        return "BanditQuest1", 1, "Bandit", CFrame.new(1059, 13, 1552), CFrame.new(1145, 17, 1630)
+    elseif lv < 15 then 
+        return "JungleQuest", 1, "Monkey", CFrame.new(-1598, 36, 153), CFrame.new(-1610, 21, -48)
+    elseif lv < 30 then 
+        return "JungleQuest", 2, "Gorilla", CFrame.new(-1598, 36, 153), CFrame.new(-1249, 8, -456)
+    elseif lv < 40 then 
+        return "BuggyQuest1", 1, "Pirate", CFrame.new(-1141, 1, 3832), CFrame.new(-1140, 6, 3902)
+    elseif lv < 60 then 
+        return "BuggyQuest1", 2, "Brute", CFrame.new(-1141, 1, 3832), CFrame.new(-1145, 15, 4300)
+    elseif lv < 75 then 
+        return "DesertQuest", 1, "Desert Bandit", CFrame.new(894, 6, 4392), CFrame.new(937, 8, 4429)
+    elseif lv < 90 then 
+        return "DesertQuest", 2, "Desert Officer", CFrame.new(894, 6, 4392), CFrame.new(1578, 4, 4300)
+    elseif lv < 100 then 
+        return "SnowQuest", 1, "Snow Bandit", CFrame.new(1387, 87, -1295), CFrame.new(1381, 89, -1465)
+    elseif lv < 120 then 
+        return "SnowQuest", 2, "Snowman", CFrame.new(1387, 87, -1295), CFrame.new(1190, 107, -1627)
+    elseif lv < 150 then 
+        return "MarineQuest2", 1, "Marine Chief", CFrame.new(-5040, 28, 4325), CFrame.new(-4809, 21, 4540)
+    elseif lv < 175 then 
+        return "SkyQuest", 1, "Sky Bandit", CFrame.new(-4840, 717, -2619), CFrame.new(-4945, 278, -2785)
+    elseif lv < 190 then 
+        return "SkyQuest", 2, "Dark Bird", CFrame.new(-4840, 717, -2619), CFrame.new(-5244, 390, -2155)
+    else 
+        return "PrisonerQuest", 1, "Prisoner", CFrame.new(5311, 0, 475), CFrame.new(5090, 0, 424) 
     end
 end
 
--- [ DATA QUEST LEVEL 1-210 ]
-local function GetQuestData()
-    local lv = Player.Data.Level.Value
-    if lv < 10 then return "BanditQuest1", 1, "Bandit", CFrame.new(1059, 13, 1552), CFrame.new(1145, 17, 1630)
-    elseif lv < 15 then return "JungleQuest", 1, "Monkey", CFrame.new(-1598, 36, 153), CFrame.new(-1610, 21, -48)
-    elseif lv < 30 then return "JungleQuest", 2, "Gorilla", CFrame.new(-1598, 36, 153), CFrame.new(-1249, 8, -456)
-    elseif lv < 40 then return "BuggyQuest1", 1, "Pirate", CFrame.new(-1141, 1, 3832), CFrame.new(-1140, 6, 3902)
-    elseif lv < 60 then return "BuggyQuest1", 2, "Brute", CFrame.new(-1141, 1, 3832), CFrame.new(-1145, 15, 4300)
-    elseif lv < 75 then return "DesertQuest", 1, "Desert Bandit", CFrame.new(894, 6, 4392), CFrame.new(937, 8, 4429)
-    elseif lv < 90 then return "DesertQuest", 2, "Desert Officer", CFrame.new(894, 6, 4392), CFrame.new(1578, 4, 4300)
-    elseif lv < 100 then return "SnowQuest", 1, "Snow Bandit", CFrame.new(1387, 87, -1295), CFrame.new(1381, 89, -1465)
-    elseif lv < 120 then return "SnowQuest", 2, "Snowman", CFrame.new(1387, 87, -1295), CFrame.new(1190, 107, -1627)
-    elseif lv < 150 then return "MarineQuest2", 1, "Marine Chief", CFrame.new(-5040, 28, 4325), CFrame.new(-4809, 21, 4540)
-    else return "PrisonerQuest", 1, "Prisoner", CFrame.new(5311, 0, 475), CFrame.new(5090, 0, 424) end
-end
-
--- [ MAIN FARM LOOP ]
+-- [ 4. MAIN FARM LOOP ]
 task.spawn(function()
     while task.wait() do
-        if _G.Config.AutoFarm and Player.Team ~= nil and not _G.IsBuying then
+        if _G.Config.AutoFarm and Player.Team ~= nil then
             pcall(function()
                 local qName, qID, mName, npcPos, mobArea = GetQuestData()
                 
+                -- KIỂM TRA QUEST
                 if not Player.PlayerGui.Main.Quest.Visible then
-                    SmartMove(npcPos)
+                    -- BƯỚC 1: TWEEN ĐẾN NPC TRƯỚC
+                    SmartTween(npcPos)
+                    
+                    -- BƯỚC 2: CHỈ KHI ĐẾN NƠI MỚI BẤM NHẬN QUEST
                     if (Player.Character.HumanoidRootPart.Position - npcPos.p).Magnitude < 15 then
+                        task.wait(0.5) -- Đợi 0.5s cho NPC load hẳn
                         CommF:InvokeServer("StartQuest", qName, qID)
                     end
                 else
+                    -- Nếu sai quest thì hủy
                     if not string.find(Player.PlayerGui.Main.Quest.Container.QuestTitle.Title.Text, mName) then
                         CommF:InvokeServer("AbandonQuest")
+                        return
                     end
                     
+                    -- TÌM VÀ GOM QUÁI
                     local targetMob = nil
                     for _, v in pairs(workspace.Enemies:GetChildren()) do
                         if v.Name == mName and v:FindFirstChild("Humanoid") and v.Humanoid.Health > 0 then
@@ -96,20 +104,30 @@ task.spawn(function()
                     end
                     
                     if targetMob then
-                        -- GỌI HÀM GOM QUÁI
-                        BringMob(targetMob, mName)
-                        
-                        -- Farm ngay trên đầu quái
+                        -- Bring Mob logic
+                        for _, v in pairs(workspace.Enemies:GetChildren()) do
+                            if v.Name == mName and v:FindFirstChild("HumanoidRootPart") then
+                                if (v.HumanoidRootPart.Position - targetMob.HumanoidRootPart.Position).Magnitude < 250 then
+                                    v.HumanoidRootPart.CFrame = targetMob.HumanoidRootPart.CFrame
+                                    v.HumanoidRootPart.CanCollide = false
+                                end
+                            end
+                        end
+
+                        -- Giữ khoảng cách Distance (Distance: 13)
                         Player.Character.HumanoidRootPart.CFrame = targetMob.HumanoidRootPart.CFrame * CFrame.new(0, _G.Config.FarmHeight, 0)
                         
+                        -- Equip Tool
                         local tool = Player.Backpack:FindFirstChild("Black Leg") or Player.Backpack:FindFirstChild("Combat") or Player.Character:FindFirstChildOfClass("Tool")
                         if tool then Player.Character.Humanoid:EquipTool(tool) end
                         
-                        -- Attack
+                        -- Attack (Speed: 0.3)
                         RS.Modules.Net["RE/RegisterAttack"]:FireServer()
                         RS.Modules.Net["RE/RegisterHit"]:FireServer(targetMob.HumanoidRootPart)
+                        task.wait(_G.Config.AttackSpeed)
                     else
-                        SmartMove(mobArea)
+                        -- Nếu hết quái thì Tween ra khu vực chờ quái spawn
+                        SmartTween(mobArea)
                     end
                 end
             end)
@@ -117,20 +135,7 @@ task.spawn(function()
     end
 end)
 
--- [ AUTO MISC ]
-task.spawn(function()
-    while task.wait(3) do
-        pcall(function()
-            if _G.Config.AutoStat then
-                local p = Player.Data.StatsPoints.Value
-                if p > 0 then CommF:InvokeServer("AddPoint", _G.Config.StatTarget or "Melee", p) end
-            end
-            if _G.Config.AutoBuso and not Player.Character:FindFirstChild("HasBuso") then CommF:InvokeServer("Buso") end
-        end)
-    end
-end)
-
--- [ PHYSICS ]
+-- [ CÁC LOGIC PHỤ: COLLISION & WHITE SCREEN ]
 game:GetService("RunService").Stepped:Connect(function()
     if _G.Config.AutoFarm and Player.Character then
         for _, v in pairs(Player.Character:GetDescendants()) do
@@ -140,75 +145,4 @@ game:GetService("RunService").Stepped:Connect(function()
 end)
 
 if _G.Config.WhiteScreen then game:GetService("RunService"):Set3dRenderingEnabled(false) end
-
--- [[ KAITUN FULL LOGIC - SYNC CONFIG EXECUTOR ]]
-repeat task.wait() until game:IsLoaded()
-
-local Player = game:GetService("Players").LocalPlayer
-local CommF = game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("CommF_")
-
--- Bypass Streaming & Auto Team (Giữ nguyên)
-if game:GetService("Workspace"):FindFirstChild("StreamingEnabled") then Player.ReplicationFocus = workspace end
-local function ForceTeam()
-    task.spawn(function()
-        while not Player.Team do
-            CommF:InvokeServer("SetTeam", "Pirates")
-            task.wait(0.5)
-        end
-    end)
-end
-ForceTeam()
-
--- Vòng lặp Farm chính húp data từ Config bên ngoài
-task.spawn(function()
-    while task.wait() do
-        if _G.Config.AutoFarm and Player.Team ~= nil then
-            pcall(function()
-                -- Lấy dữ liệu Quest (Giữ nguyên đống Quest lv 1-210 ở trên)
-                local qName, qID, mName, npcPos, mobArea = GetQuestData() 
-                
-                if not Player.PlayerGui.Main.Quest.Visible then
-                    -- Dùng TweenSpeed từ Executor
-                    local dist = (npcPos.p - Player.Character.HumanoidRootPart.Position).Magnitude
-                    game:GetService("TweenService"):Create(Player.Character.HumanoidRootPart, TweenInfo.new(dist/_G.Config.TweenSpeed, Enum.EasingStyle.Linear), {CFrame = npcPos}):Play()
-                    
-                    if dist < 15 then CommF:InvokeServer("StartQuest", qName, qID) end
-                else
-                    local targetMob = nil
-                    for _, v in pairs(workspace.Enemies:GetChildren()) do
-                        if v.Name == mName and v.Humanoid.Health > 0 then targetMob = v; break end
-                    end
-                    
-                    if targetMob then
-                        -- Dùng FarmHeight (Distance 13) từ Executor
-                        Player.Character.HumanoidRootPart.CFrame = targetMob.HumanoidRootPart.CFrame * CFrame.new(0, _G.Config.FarmHeight, 0)
-                        
-                        -- Gom quái (Bring Mob)
-                        for _, v in pairs(workspace.Enemies:GetChildren()) do
-                            if v.Name == mName and (v.HumanoidRootPart.Position - targetMob.HumanoidRootPart.Position).Magnitude < 300 then
-                                v.HumanoidRootPart.CFrame = targetMob.HumanoidRootPart.CFrame
-                                v.HumanoidRootPart.CanCollide = false
-                            end
-                        end
-                        
-                        -- Equip Tool
-                        local tool = Player.Backpack:FindFirstChild("Black Leg") or Player.Backpack:FindFirstChild("Combat") or Player.Character:FindFirstChildOfClass("Tool")
-                        if tool then Player.Character.Humanoid:EquipTool(tool) end
-                        
-                        -- Đánh với AttackSpeed 0.3 từ Executor
-                        game:GetService("ReplicatedStorage").Modules.Net["RE/RegisterAttack"]:FireServer()
-                        game:GetService("ReplicatedStorage").Modules.Net["RE/RegisterHit"]:FireServer(targetMob.HumanoidRootPart)
-                        task.wait(_G.Config.AttackSpeed)
-                    else
-                        -- Tween ra khu vực quái
-                        local dist = (mobArea.p - Player.Character.HumanoidRootPart.Position).Magnitude
-                        game:GetService("TweenService"):Create(Player.Character.HumanoidRootPart, TweenInfo.new(dist/_G.Config.TweenSpeed, Enum.EasingStyle.Linear), {CFrame = mobArea}):Play()
-                    end
-                end
-            end)
-        end
-    end
-end)
-
--- Các logic Auto Stats, Code, Gacha... (Giữ nguyên)
-print("KAITUN BRING MOB LOADED!")
+print("BYPASS STREAMING PRO LOADED!")
